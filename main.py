@@ -3,8 +3,52 @@ import logging
 import json
 import requests
 import datetime
+import io
 
 TEST_CHARACTER = {'realm': 'proudmoore', 'name': 'Volstatsz'}
+
+ENCOUNTERS = [
+    {
+        "id": 2144,
+        "name": "Taloc",
+        "npcID": 137119
+    },
+    {
+        "id": 2141,
+        "name": "MOTHER",
+        "npcID": 135452
+    },
+    {
+        "id": 2128,
+        "name": "Fetid Devourer",
+        "npcID": 133298
+    },
+    {
+        "id": 2136,
+        "name": "Zek'voz, Herald of N'zoth",
+        "npcID": 134445
+    },
+    {
+        "id": 2134,
+        "name": "Vectis",
+        "npcID": 134442
+    },
+    {
+        "id": 2145,
+        "name": "Zul, Reborn",
+        "npcID": 138967
+    },
+    {
+        "id": 2135,
+        "name": "Mythrax the Unraveler",
+        "npcID": 134546
+    },
+    {
+        "id": 2122,
+        "name": "G'huun",
+        "npcID": 132998
+    }
+]
 
 def json_pull(dct):
     #Pull data from a static .json file and load it into memory.
@@ -45,3 +89,44 @@ def process_feed(feed):
             loots.append(last_loot)
             last_loot = {'timestamp': False}
     return loots
+
+def characters_crawler():
+    #Search WCL ranks for new characters.
+    try:
+        with io.open('characters.json', encoding='utf-8') as f:
+            characters = json.load(f)
+    except:
+        characters = {}
+    for encounter in ENCOUNTERS:
+        #search each page of the encounter, merging into the overall data
+        page = 1
+        has_more_pages = True
+        while has_more_pages == True and page <= 200:
+            print('Requesting page {} of ranks for {}'.format(page, encounter['name']))
+            api_key = json_pull('api-keys.json')['warcaftlogs']
+            url = ('https://www.warcraftlogs.com:443/v1/rankings/encounter/' +
+                    str(encounter['id']) + '?api_key=' + api_key + '&page=' + 
+                    str(page) + '&difficulty=4')
+            response = requests.get(url).json()
+            for character in response['rankings']:
+                character_unique = (character['name'] + '_' + 
+                                    character['serverName'] + '_' + 
+                                    character['regionName'])
+                if not character_unique in characters:
+                    print('New character {} found'.format(character_unique))
+                    characters[character_unique] = {
+                        'name': character['name'],
+                        'server': character['serverName'],
+                        'regaion': character['regionName'],
+                        'class': character['class']
+                    }
+            page += 1
+            has_more_pages = response['hasMorePages']
+    with io.open('characters.json', 'w', encoding='utf-8') as f:
+        json.dump(characters, f, ensure_ascii=False)
+
+
+
+def encounters_crawler(last_crawl):
+    #Search characters in DB for new encounters.
+    pass
